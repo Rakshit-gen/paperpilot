@@ -3,13 +3,13 @@ import os
 import threading
 from datetime import datetime, timezone
 
-from paperpilot.config import CHROMA_DIR
+from paperpilot.config import DATA_DIR
 
 _lock = threading.Lock()
 
 
 def _registry_path() -> str:
-    return os.path.join(CHROMA_DIR, "papers.json")
+    return os.path.join(DATA_DIR, "papers.json")
 
 
 def _read_all() -> list[dict]:
@@ -21,7 +21,7 @@ def _read_all() -> list[dict]:
 
 
 def _write_all(papers: list[dict]) -> None:
-    os.makedirs(CHROMA_DIR, exist_ok=True)
+    os.makedirs(DATA_DIR, exist_ok=True)
     with open(_registry_path(), "w") as f:
         json.dump(papers, f, indent=2)
 
@@ -29,10 +29,10 @@ def _write_all(papers: list[dict]) -> None:
 def add_paper(paper_id: str, user_id: str, title: str, filename: str, page_count: int) -> dict:
     """Register a paper's metadata.
 
-    Chroma doesn't give a clean way to list distinct documents by metadata,
-    so a small JSON sidecar file tracks the papers list. A real database
-    would replace this, but a file lock is enough for a single-process
-    FastAPI app.
+    The vector store doesn't give a clean way to list distinct documents by
+    metadata, so a small JSON sidecar file tracks the papers list. A real
+    database would replace this, but a file lock is enough for a
+    single-process FastAPI app.
     """
     record = {
         "paper_id": paper_id,

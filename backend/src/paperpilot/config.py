@@ -7,12 +7,17 @@ load_dotenv()
 
 GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "")
 GROQ_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b")
-CHROMA_DIR = os.environ.get("CHROMA_DIR", "./chroma_store")
+DATA_DIR = os.environ.get("DATA_DIR", "./data")
 UPLOAD_DIR = os.environ.get("UPLOAD_DIR", "./uploads")
 DB_PATH = os.environ.get("DB_PATH", "./paperpilot.db")
 CHUNK_SIZE = int(os.environ.get("CHUNK_SIZE", "1000"))
 CHUNK_OVERLAP = int(os.environ.get("CHUNK_OVERLAP", "150"))
 CORS_ORIGIN = os.environ.get("CORS_ORIGIN", "http://localhost:3000")
+
+# QDRANT_URL unset falls back to an in-memory Qdrant instance (local dev/tests).
+QDRANT_URL = os.environ.get("QDRANT_URL", "")
+QDRANT_API_KEY = os.environ.get("QDRANT_API_KEY", "")
+QDRANT_COLLECTION = os.environ.get("QDRANT_COLLECTION", "paperpilot")
 
 SECRET_KEY = os.environ.get("SECRET_KEY", "")
 if not SECRET_KEY:

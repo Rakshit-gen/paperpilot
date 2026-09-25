@@ -10,10 +10,21 @@ os.environ.setdefault("ANONYMIZED_TELEMETRY", "False")
 os.environ.setdefault("ORT_DISABLE_TELEMETRY_EVENTS", "1")
 
 from chromadb.utils.embedding_functions import ONNXMiniLM_L6_V2
-from langchain_chroma import Chroma
 from langchain_core.embeddings import Embeddings
+from langchain_qdrant import QdrantVectorStore
+from qdrant_client import QdrantClient
+from qdrant_client.http.models import (
+    Distance,
+    FieldCondition,
+    Filter,
+    MatchValue,
+    PayloadSchemaType,
+    VectorParams,
+)
 
-from paperpilot.config import CHROMA_DIR
+from paperpilot.config import QDRANT_API_KEY, QDRANT_COLLECTION, QDRANT_URL
+
+_EMBEDDING_DIM = 384  # all-MiniLM-L6-v2 output size
 
 _embeddings = None
 _vectorstore = None
@@ -45,19 +56,37 @@ def get_embeddings() -> Embeddings:
     return _embeddings
 
 
-def get_vectorstore() -> Chroma:
-    """Return a single shared Chroma client for the process's lifetime.
+def get_vectorstore() -> QdrantVectorStore:
+    """Return a single shared Qdrant-backed vector store for the process's lifetime.
 
-    Instantiating Chroma(persist_directory=...) opens a new persistent
-    client each time, which reloads the on-disk HNSW index into memory.
-    Doing that on every request (this used to be called per-request) piles
-    up un-released native memory until the process gets OOM-killed, even
-    though each individual call looks cheap. One client, reused, is what
-    chromadb itself expects for a long-lived process.
+    Chroma kept its whole HNSW index resident in the API process, so memory
+    grew with every upload no matter how the client was reused, until the
+    process got OOM-killed on Render's 512MB free tier. Qdrant Cloud holds
+    the index instead, so the process only ever holds one request's worth of
+    vectors in memory at a time. QDRANT_URL unset (local dev/tests) falls
+    back to an in-memory Qdrant instance instead of a real cluster.
     """
     global _vectorstore
     if _vectorstore is None:
-        _vectorstore = Chroma(persist_directory=CHROMA_DIR, embedding_function=get_embeddings())
+        client = (
+            QdrantClient(url=QDRANT_URL, api_key=QDRANT_API_KEY)
+            if QDRANT_URL
+            else QdrantClient(location=":memory:")
+        )
+        if not client.collection_exists(QDRANT_COLLECTION):
+            client.create_collection(
+                QDRANT_COLLECTION,
+                vectors_config=VectorParams(size=_EMBEDDING_DIM, distance=Distance.COSINE),
+            )
+            # Unlike Chroma, Qdrant refuses to filter on a payload field
+            # until it has an index for it.
+            for field in ("metadata.paper_id", "metadata.user_id"):
+                client.create_payload_index(
+                    QDRANT_COLLECTION, field_name=field, field_schema=PayloadSchemaType.KEYWORD
+                )
+        _vectorstore = QdrantVectorStore(
+            client=client, collection_name=QDRANT_COLLECTION, embedding=get_embeddings()
+        )
     return _vectorstore
 
 
@@ -69,12 +98,19 @@ def get_paper_chunks(paper_id: str, user_id: str) -> list[dict]:
     generating flashcards needs a direct metadata lookup instead.
     """
     store = get_vectorstore()
-    result = store._collection.get(
-        where={"$and": [{"paper_id": paper_id}, {"user_id": user_id}]},
-        include=["documents", "metadatas"],
+    records, _ = store.client.scroll(
+        collection_name=QDRANT_COLLECTION,
+        scroll_filter=Filter(
+            must=[
+                FieldCondition(key="metadata.paper_id", match=MatchValue(value=paper_id)),
+                FieldCondition(key="metadata.user_id", match=MatchValue(value=user_id)),
+            ]
+        ),
+        limit=10_000,
+        with_payload=True,
     )
     chunks = [
-        {"text": doc, "page": meta.get("page", 0)}
-        for doc, meta in zip(result["documents"], result["metadatas"])
+        {"text": r.payload["page_content"], "page": r.payload["metadata"].get("page", 0)}
+        for r in records
     ]
     return sorted(chunks, key=lambda c: c["page"])

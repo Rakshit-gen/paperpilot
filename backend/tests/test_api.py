@@ -5,8 +5,7 @@ SAMPLES_DIR = os.path.join(os.path.dirname(__file__), "..", "samples")
 
 
 def _client(tmp_path, monkeypatch):
-    monkeypatch.setattr("paperpilot.store.CHROMA_DIR", str(tmp_path / "chroma"))
-    monkeypatch.setattr("paperpilot.registry.CHROMA_DIR", str(tmp_path / "chroma"))
+    monkeypatch.setattr("paperpilot.registry.DATA_DIR", str(tmp_path / "chroma"))
     monkeypatch.setattr("paperpilot.api.UPLOAD_DIR", str(tmp_path / "uploads"))
     monkeypatch.setattr("paperpilot.db.DB_PATH", str(tmp_path / "test.db"))
 

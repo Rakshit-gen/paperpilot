@@ -3,6 +3,7 @@ from typing import TypedDict
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_groq import ChatGroq
 from langgraph.graph import END, StateGraph
+from qdrant_client.http.models import FieldCondition, Filter, MatchValue
 
 from paperpilot.config import GROQ_MODEL, require_groq_key
 from paperpilot.llm import invoke_with_retry
@@ -47,10 +48,10 @@ class AskState(TypedDict):
 
 def retrieve_node(state: AskState) -> dict:
     store = get_vectorstore()
-    filter_arg = {"user_id": state["user_id"]}
+    conditions = [FieldCondition(key="metadata.user_id", match=MatchValue(value=state["user_id"]))]
     if state.get("paper_id"):
-        filter_arg = {"$and": [filter_arg, {"paper_id": state["paper_id"]}]}
-    docs = store.similarity_search(state["question"], k=5, filter=filter_arg)
+        conditions.append(FieldCondition(key="metadata.paper_id", match=MatchValue(value=state["paper_id"])))
+    docs = store.similarity_search(state["question"], k=5, filter=Filter(must=conditions))
     retrieved = [
         {"text": d.page_content, "title": d.metadata.get("title"), "page": d.metadata.get("page")}
         for d in docs

@@ -5,8 +5,7 @@ USER_ID = "test-user"
 
 
 def test_retrieve_node_finds_relevant_chunks(tmp_path, monkeypatch):
-    monkeypatch.setattr("paperpilot.store.CHROMA_DIR", str(tmp_path))
-    monkeypatch.setattr("paperpilot.registry.CHROMA_DIR", str(tmp_path))
+    monkeypatch.setattr("paperpilot.registry.DATA_DIR", str(tmp_path))
 
     from paperpilot.pdf_ingest import ingest_pdf
     from paperpilot.graph import retrieve_node
@@ -22,8 +21,7 @@ def test_retrieve_node_finds_relevant_chunks(tmp_path, monkeypatch):
 
 
 def test_retrieve_node_filters_by_paper_id(tmp_path, monkeypatch):
-    monkeypatch.setattr("paperpilot.store.CHROMA_DIR", str(tmp_path))
-    monkeypatch.setattr("paperpilot.registry.CHROMA_DIR", str(tmp_path))
+    monkeypatch.setattr("paperpilot.registry.DATA_DIR", str(tmp_path))
 
     from paperpilot.pdf_ingest import ingest_pdf
     from paperpilot.graph import retrieve_node
@@ -38,8 +36,7 @@ def test_retrieve_node_filters_by_paper_id(tmp_path, monkeypatch):
 
 
 def test_retrieve_node_does_not_cross_user_boundaries(tmp_path, monkeypatch):
-    monkeypatch.setattr("paperpilot.store.CHROMA_DIR", str(tmp_path))
-    monkeypatch.setattr("paperpilot.registry.CHROMA_DIR", str(tmp_path))
+    monkeypatch.setattr("paperpilot.registry.DATA_DIR", str(tmp_path))
 
     from paperpilot.pdf_ingest import ingest_pdf
     from paperpilot.graph import retrieve_node

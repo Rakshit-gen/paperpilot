@@ -7,8 +7,7 @@ USER_ID = "test-user"
 
 
 def _ingest_sample(tmp_path, monkeypatch):
-    monkeypatch.setattr("paperpilot.store.CHROMA_DIR", str(tmp_path))
-    monkeypatch.setattr("paperpilot.registry.CHROMA_DIR", str(tmp_path))
+    monkeypatch.setattr("paperpilot.registry.DATA_DIR", str(tmp_path))
     from paperpilot.pdf_ingest import ingest_pdf
 
     return ingest_pdf(os.path.join(SAMPLES_DIR, "attention-is-all-you-need-notes.pdf"), user_id=USER_ID)
@@ -25,8 +24,7 @@ def test_get_paper_chunks_returns_all_chunks_in_page_order(tmp_path, monkeypatch
 
 
 def test_summarize_paper_raises_on_unknown_paper(tmp_path, monkeypatch):
-    monkeypatch.setattr("paperpilot.store.CHROMA_DIR", str(tmp_path))
-    monkeypatch.setattr("paperpilot.registry.CHROMA_DIR", str(tmp_path))
+    monkeypatch.setattr("paperpilot.registry.DATA_DIR", str(tmp_path))
     from paperpilot.summarize import summarize_paper
 
     with pytest.raises(ValueError):
@@ -34,8 +32,7 @@ def test_summarize_paper_raises_on_unknown_paper(tmp_path, monkeypatch):
 
 
 def test_generate_flashcards_raises_on_unknown_paper(tmp_path, monkeypatch):
-    monkeypatch.setattr("paperpilot.store.CHROMA_DIR", str(tmp_path))
-    monkeypatch.setattr("paperpilot.registry.CHROMA_DIR", str(tmp_path))
+    monkeypatch.setattr("paperpilot.registry.DATA_DIR", str(tmp_path))
     from paperpilot.flashcards import generate_flashcards
 
     with pytest.raises(ValueError):

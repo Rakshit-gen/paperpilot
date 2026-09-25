@@ -41,7 +41,7 @@ def ingest_pdf(path: str, user_id: str, title: str | None = None, filename: str 
     for page_num, page_text in enumerate(pages, start=1):
         if not page_text.strip():
             continue
-        for i, chunk in enumerate(splitter.split_text(page_text)):
+        for chunk in splitter.split_text(page_text):
             texts.append(chunk)
             metadatas.append(
                 {
@@ -51,7 +51,7 @@ def ingest_pdf(path: str, user_id: str, title: str | None = None, filename: str 
                     "page": page_num,
                 }
             )
-            ids.append(f"{paper_id}::{page_num}::{i}")
+            ids.append(str(uuid.uuid4()))
 
     store = get_vectorstore()
     store.add_texts(texts=texts, metadatas=metadatas, ids=ids)

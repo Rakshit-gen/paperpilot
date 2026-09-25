@@ -7,8 +7,7 @@ USER_ID = "test-user"
 
 
 def test_ingest_pdf_stores_page_level_citations(tmp_path, monkeypatch):
-    monkeypatch.setattr("paperpilot.store.CHROMA_DIR", str(tmp_path))
-    monkeypatch.setattr("paperpilot.registry.CHROMA_DIR", str(tmp_path))
+    monkeypatch.setattr("paperpilot.registry.DATA_DIR", str(tmp_path))
 
     from paperpilot.pdf_ingest import ingest_pdf
     from paperpilot.registry import get_paper
@@ -32,8 +31,7 @@ def test_ingest_pdf_stores_page_level_citations(tmp_path, monkeypatch):
 
 
 def test_ingest_pdf_uses_explicit_filename_over_path_basename(tmp_path, monkeypatch):
-    monkeypatch.setattr("paperpilot.store.CHROMA_DIR", str(tmp_path))
-    monkeypatch.setattr("paperpilot.registry.CHROMA_DIR", str(tmp_path))
+    monkeypatch.setattr("paperpilot.registry.DATA_DIR", str(tmp_path))
 
     from paperpilot.pdf_ingest import ingest_pdf
     from paperpilot.registry import get_paper
@@ -46,8 +44,7 @@ def test_ingest_pdf_uses_explicit_filename_over_path_basename(tmp_path, monkeypa
 
 
 def test_ingest_pdf_raises_on_missing_file(tmp_path, monkeypatch):
-    monkeypatch.setattr("paperpilot.store.CHROMA_DIR", str(tmp_path))
-    monkeypatch.setattr("paperpilot.registry.CHROMA_DIR", str(tmp_path))
+    monkeypatch.setattr("paperpilot.registry.DATA_DIR", str(tmp_path))
 
     from paperpilot.pdf_ingest import ingest_pdf
 

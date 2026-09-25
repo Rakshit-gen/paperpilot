@@ -4,7 +4,7 @@ backend/**/__pycache__/
 backend/*.egg-info/
 backend/**/*.egg-info/
 backend/.pytest_cache/
-backend/chroma_store/
+backend/data/
 backend/uploads/
 backend/*.db
 .env
