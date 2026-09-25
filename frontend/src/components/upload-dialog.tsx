@@ -41,13 +41,17 @@ export function UploadDialog({ onUploaded }: { onUploaded: () => void }) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger render={<Button className="w-full rounded-2xl gap-2" />}>
+      <DialogTrigger
+        render={
+          <Button className="w-full rounded-2xl gap-2 transition-transform hover:scale-[1.03] active:scale-95" />
+        }
+      >
         <Upload className="size-4" />
         Add a paper
       </DialogTrigger>
-      <DialogContent className="rounded-3xl">
+      <DialogContent className="rounded-3xl animate-in zoom-in-95 fade-in duration-200">
         <DialogHeader>
-          <DialogTitle>Upload a paper</DialogTitle>
+          <DialogTitle className="font-heading">Upload a paper</DialogTitle>
           <DialogDescription>
             Drop a PDF in and paperpilot will chunk it page by page so every
             answer can point back to exactly where it came from.
@@ -65,14 +69,16 @@ export function UploadDialog({ onUploaded }: { onUploaded: () => void }) {
             handleFile(e.dataTransfer.files?.[0]);
           }}
           onClick={() => inputRef.current?.click()}
-          className={`flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed p-10 text-center cursor-pointer transition-colors ${
-            dragging ? "border-primary bg-accent/40" : "border-border hover:bg-muted/50"
+          className={`flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed p-10 text-center cursor-pointer transition-all duration-200 ${
+            dragging
+              ? "scale-[1.02] border-primary bg-accent/40"
+              : "border-border hover:bg-muted/50"
           }`}
         >
           {busy ? (
             <Loader2 className="size-8 animate-spin text-primary" />
           ) : (
-            <Upload className="size-8 text-muted-foreground" />
+            <Upload className="size-8 text-muted-foreground animate-float" />
           )}
           <p className="text-sm text-muted-foreground">
             {busy ? "Reading your paper..." : "Drag a PDF here, or click to browse"}

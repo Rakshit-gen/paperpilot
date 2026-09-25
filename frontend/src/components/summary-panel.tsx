@@ -47,12 +47,16 @@ export function SummaryPanel({ paperId, paperTitle }: { paperId: string; paperTi
     <div className="flex h-full flex-col gap-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-xl font-semibold">Summary of {paperTitle}</h2>
+          <h2 className="font-heading text-xl font-semibold">Summary of {paperTitle}</h2>
           <p className="text-sm text-muted-foreground">
             Problem, method, and result, pulled only from this paper&apos;s own text.
           </p>
         </div>
-        <Button onClick={generate} disabled={busy} className="rounded-2xl gap-2">
+        <Button
+          onClick={generate}
+          disabled={busy}
+          className="rounded-2xl gap-2 transition-transform hover:scale-[1.03] active:scale-95"
+        >
           {busy && <Loader2 className="size-4 animate-spin" />}
           {summary ? "Regenerate" : "Generate summary"}
         </Button>
@@ -60,15 +64,19 @@ export function SummaryPanel({ paperId, paperTitle }: { paperId: string; paperTi
 
       {!summary && !busy && (
         <div className="flex flex-1 flex-col items-center justify-center gap-2 rounded-3xl border bg-card/50 text-center text-muted-foreground">
-          <ScrollText className="size-8" />
+          <ScrollText className="size-8 animate-float" />
           <p className="text-sm">No summary yet, generate one above.</p>
         </div>
       )}
 
       {summary && (
         <div className="grid gap-4 sm:grid-cols-3">
-          {parseSummary(summary).map((s) => (
-            <Card key={s.label} className="rounded-3xl p-5 shadow-sm">
+          {parseSummary(summary).map((s, i) => (
+            <Card
+              key={s.label}
+              style={{ animationDelay: `${i * 80}ms` }}
+              className="animate-in fade-in slide-in-from-bottom-2 rounded-3xl p-5 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-md"
+            >
               <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-primary">
                 <s.icon className="size-4" />
                 {s.label}

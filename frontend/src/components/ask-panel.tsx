@@ -34,7 +34,7 @@ export function AskPanel({ paperId, paperTitle }: { paperId: string | null; pape
   return (
     <div className="flex h-full flex-col gap-4">
       <div>
-        <h2 className="text-xl font-semibold">Ask {paperTitle}</h2>
+        <h2 className="font-heading text-xl font-semibold">Ask {paperTitle}</h2>
         <p className="text-sm text-muted-foreground">
           Every answer is grounded in the text and cites the paper and page it came from.
           If the library doesn&apos;t have enough to answer, paperpilot says so instead of guessing.
@@ -44,13 +44,13 @@ export function AskPanel({ paperId, paperTitle }: { paperId: string | null; pape
       <div className="flex-1 space-y-4 overflow-y-auto rounded-3xl border bg-card/50 p-5">
         {turns.length === 0 && (
           <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-muted-foreground">
-            <MessageCircleQuestion className="size-8" />
+            <MessageCircleQuestion className="size-8 animate-float" />
             <p className="text-sm">Ask something like &quot;what method does this paper use?&quot;</p>
           </div>
         )}
 
         {turns.map((turn, i) => (
-          <div key={i} className="space-y-3">
+          <div key={i} className="animate-in fade-in slide-in-from-bottom-2 space-y-3 duration-300">
             <div className="flex items-start justify-end gap-2">
               <Card className="max-w-[80%] rounded-2xl rounded-tr-sm bg-primary px-4 py-2.5 text-primary-foreground shadow-sm">
                 <p className="text-sm">{turn.question}</p>
@@ -65,7 +65,7 @@ export function AskPanel({ paperId, paperTitle }: { paperId: string | null; pape
                   <Sparkles className="size-3.5" />
                 </AvatarFallback>
               </Avatar>
-              <Card className="max-w-[80%] whitespace-pre-wrap rounded-2xl rounded-tl-sm px-4 py-2.5 text-sm shadow-sm">
+              <Card className="max-w-[80%] animate-pop-in whitespace-pre-wrap rounded-2xl rounded-tl-sm px-4 py-2.5 text-sm shadow-sm">
                 {turn.answer}
               </Card>
             </div>
@@ -94,7 +94,12 @@ export function AskPanel({ paperId, paperTitle }: { paperId: string | null; pape
           className="min-h-11 resize-none border-0 shadow-none focus-visible:ring-0"
           rows={1}
         />
-        <Button onClick={submit} disabled={busy || !question.trim()} size="icon" className="size-11 shrink-0 rounded-2xl">
+        <Button
+          onClick={submit}
+          disabled={busy || !question.trim()}
+          size="icon"
+          className="size-11 shrink-0 rounded-2xl transition-transform hover:scale-105 active:scale-90"
+        >
           <Send className="size-4" />
         </Button>
       </div>
