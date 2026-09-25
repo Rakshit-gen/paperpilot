@@ -30,6 +30,20 @@ def test_ingest_pdf_stores_page_level_citations(tmp_path, monkeypatch):
     assert docs[0].metadata["page"] in (1, 2)
 
 
+def test_ingest_pdf_uses_explicit_filename_over_path_basename(tmp_path, monkeypatch):
+    monkeypatch.setattr("paperpilot.store.CHROMA_DIR", str(tmp_path))
+    monkeypatch.setattr("paperpilot.registry.CHROMA_DIR", str(tmp_path))
+
+    from paperpilot.pdf_ingest import ingest_pdf
+    from paperpilot.registry import get_paper
+
+    path = os.path.join(SAMPLES_DIR, "attention-is-all-you-need-notes.pdf")
+    result = ingest_pdf(path, filename="original-upload-name.pdf")
+
+    paper = get_paper(result["paper_id"])
+    assert paper["filename"] == "original-upload-name.pdf"
+
+
 def test_ingest_pdf_raises_on_missing_file(tmp_path, monkeypatch):
     monkeypatch.setattr("paperpilot.store.CHROMA_DIR", str(tmp_path))
     monkeypatch.setattr("paperpilot.registry.CHROMA_DIR", str(tmp_path))
