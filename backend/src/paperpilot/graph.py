@@ -39,6 +39,7 @@ Answer:"""
 class AskState(TypedDict):
     question: str
     paper_id: str | None
+    user_id: str
     retrieved: list[dict]
     is_relevant: bool
     answer: str
@@ -46,7 +47,9 @@ class AskState(TypedDict):
 
 def retrieve_node(state: AskState) -> dict:
     store = get_vectorstore()
-    filter_arg = {"paper_id": state["paper_id"]} if state.get("paper_id") else None
+    filter_arg = {"user_id": state["user_id"]}
+    if state.get("paper_id"):
+        filter_arg = {"$and": [filter_arg, {"paper_id": state["paper_id"]}]}
     docs = store.similarity_search(state["question"], k=5, filter=filter_arg)
     retrieved = [
         {"text": d.page_content, "title": d.metadata.get("title"), "page": d.metadata.get("page")}
@@ -116,12 +119,13 @@ def build_graph():
     return builder.compile()
 
 
-def ask(question: str, paper_id: str | None = None) -> AskState:
+def ask(question: str, user_id: str, paper_id: str | None = None) -> AskState:
     graph = build_graph()
     return graph.invoke(
         {
             "question": question,
             "paper_id": paper_id,
+            "user_id": user_id,
             "retrieved": [],
             "is_relevant": False,
             "answer": "",

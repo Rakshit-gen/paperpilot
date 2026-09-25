@@ -26,7 +26,7 @@ def _write_all(papers: list[dict]) -> None:
         json.dump(papers, f, indent=2)
 
 
-def add_paper(paper_id: str, title: str, filename: str, page_count: int) -> dict:
+def add_paper(paper_id: str, user_id: str, title: str, filename: str, page_count: int) -> dict:
     """Register a paper's metadata.
 
     Chroma doesn't give a clean way to list distinct documents by metadata,
@@ -36,6 +36,7 @@ def add_paper(paper_id: str, title: str, filename: str, page_count: int) -> dict
     """
     record = {
         "paper_id": paper_id,
+        "user_id": user_id,
         "title": title,
         "filename": filename,
         "page_count": page_count,
@@ -49,13 +50,13 @@ def add_paper(paper_id: str, title: str, filename: str, page_count: int) -> dict
     return record
 
 
-def list_papers() -> list[dict]:
+def list_papers(user_id: str) -> list[dict]:
     with _lock:
-        return _read_all()
+        return [p for p in _read_all() if p["user_id"] == user_id]
 
 
-def get_paper(paper_id: str) -> dict | None:
-    for paper in list_papers():
+def get_paper(paper_id: str, user_id: str) -> dict | None:
+    for paper in list_papers(user_id):
         if paper["paper_id"] == paper_id:
             return paper
     return None

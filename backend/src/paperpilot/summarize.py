@@ -24,13 +24,13 @@ Result: ..."""
 )
 
 
-def summarize_paper(paper_id: str) -> dict:
-    paper = get_paper(paper_id)
+def summarize_paper(paper_id: str, user_id: str) -> dict:
+    paper = get_paper(paper_id, user_id)
     if paper is None:
         raise ValueError(f"no paper found with id {paper_id}")
 
     require_groq_key()
-    chunks = get_paper_chunks(paper_id)
+    chunks = get_paper_chunks(paper_id, user_id)
     if not chunks:
         raise ValueError(f"no chunks found for paper {paper_id}, was it ingested?")
     context = "\n\n".join(c["text"] for c in chunks)

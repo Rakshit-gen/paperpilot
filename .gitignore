@@ -6,6 +6,7 @@ backend/**/*.egg-info/
 backend/.pytest_cache/
 backend/chroma_store/
 backend/uploads/
+backend/*.db
 .env
 .DS_Store
 

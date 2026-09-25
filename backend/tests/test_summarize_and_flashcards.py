@@ -3,6 +3,7 @@ import os
 import pytest
 
 SAMPLES_DIR = os.path.join(os.path.dirname(__file__), "..", "samples")
+USER_ID = "test-user"
 
 
 def _ingest_sample(tmp_path, monkeypatch):
@@ -10,14 +11,14 @@ def _ingest_sample(tmp_path, monkeypatch):
     monkeypatch.setattr("paperpilot.registry.CHROMA_DIR", str(tmp_path))
     from paperpilot.pdf_ingest import ingest_pdf
 
-    return ingest_pdf(os.path.join(SAMPLES_DIR, "attention-is-all-you-need-notes.pdf"))
+    return ingest_pdf(os.path.join(SAMPLES_DIR, "attention-is-all-you-need-notes.pdf"), user_id=USER_ID)
 
 
 def test_get_paper_chunks_returns_all_chunks_in_page_order(tmp_path, monkeypatch):
     result = _ingest_sample(tmp_path, monkeypatch)
     from paperpilot.store import get_paper_chunks
 
-    chunks = get_paper_chunks(result["paper_id"])
+    chunks = get_paper_chunks(result["paper_id"], USER_ID)
     assert len(chunks) == result["chunks"]
     pages = [c["page"] for c in chunks]
     assert pages == sorted(pages)
@@ -29,7 +30,7 @@ def test_summarize_paper_raises_on_unknown_paper(tmp_path, monkeypatch):
     from paperpilot.summarize import summarize_paper
 
     with pytest.raises(ValueError):
-        summarize_paper("does-not-exist")
+        summarize_paper("does-not-exist", USER_ID)
 
 
 def test_generate_flashcards_raises_on_unknown_paper(tmp_path, monkeypatch):
@@ -38,7 +39,7 @@ def test_generate_flashcards_raises_on_unknown_paper(tmp_path, monkeypatch):
     from paperpilot.flashcards import generate_flashcards
 
     with pytest.raises(ValueError):
-        generate_flashcards("does-not-exist")
+        generate_flashcards("does-not-exist", USER_ID)
 
 
 def test_summarize_paper_fails_without_groq_key(tmp_path, monkeypatch):
@@ -47,7 +48,7 @@ def test_summarize_paper_fails_without_groq_key(tmp_path, monkeypatch):
     from paperpilot.summarize import summarize_paper
 
     with pytest.raises(RuntimeError):
-        summarize_paper(result["paper_id"])
+        summarize_paper(result["paper_id"], USER_ID)
 
 
 def test_parse_flashcards_handles_well_formed_lines():

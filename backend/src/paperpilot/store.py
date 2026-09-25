@@ -30,7 +30,7 @@ def get_vectorstore() -> Chroma:
     return Chroma(persist_directory=CHROMA_DIR, embedding_function=get_embeddings())
 
 
-def get_paper_chunks(paper_id: str) -> list[dict]:
+def get_paper_chunks(paper_id: str, user_id: str) -> list[dict]:
     """Fetch every chunk for a paper, in page order.
 
     A similarity search against some proxy query would only surface the
@@ -38,7 +38,10 @@ def get_paper_chunks(paper_id: str) -> list[dict]:
     generating flashcards needs a direct metadata lookup instead.
     """
     store = get_vectorstore()
-    result = store._collection.get(where={"paper_id": paper_id}, include=["documents", "metadatas"])
+    result = store._collection.get(
+        where={"$and": [{"paper_id": paper_id}, {"user_id": user_id}]},
+        include=["documents", "metadatas"],
+    )
     chunks = [
         {"text": doc, "page": meta.get("page", 0)}
         for doc, meta in zip(result["documents"], result["metadatas"])

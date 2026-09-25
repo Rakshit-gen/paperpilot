@@ -14,7 +14,7 @@ def _read_pages(path: str) -> list[str]:
     return [page.extract_text() or "" for page in reader.pages]
 
 
-def ingest_pdf(path: str, title: str | None = None, filename: str | None = None) -> dict:
+def ingest_pdf(path: str, user_id: str, title: str | None = None, filename: str | None = None) -> dict:
     """Chunk a PDF page by page and store it with page-level citations.
 
     Chunking per page (instead of the whole document at once) keeps the
@@ -46,6 +46,7 @@ def ingest_pdf(path: str, title: str | None = None, filename: str | None = None)
             metadatas.append(
                 {
                     "paper_id": paper_id,
+                    "user_id": user_id,
                     "title": display_title,
                     "page": page_num,
                 }
@@ -55,6 +56,6 @@ def ingest_pdf(path: str, title: str | None = None, filename: str | None = None)
     store = get_vectorstore()
     store.add_texts(texts=texts, metadatas=metadatas, ids=ids)
 
-    add_paper(paper_id=paper_id, title=display_title, filename=filename, page_count=len(pages))
+    add_paper(paper_id=paper_id, user_id=user_id, title=display_title, filename=filename, page_count=len(pages))
 
     return {"paper_id": paper_id, "title": display_title, "chunks": len(texts), "pages": len(pages)}

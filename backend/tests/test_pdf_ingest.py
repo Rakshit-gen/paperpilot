@@ -3,6 +3,7 @@ import os
 import pytest
 
 SAMPLES_DIR = os.path.join(os.path.dirname(__file__), "..", "samples")
+USER_ID = "test-user"
 
 
 def test_ingest_pdf_stores_page_level_citations(tmp_path, monkeypatch):
@@ -14,12 +15,12 @@ def test_ingest_pdf_stores_page_level_citations(tmp_path, monkeypatch):
     from paperpilot.store import get_vectorstore
 
     path = os.path.join(SAMPLES_DIR, "attention-is-all-you-need-notes.pdf")
-    result = ingest_pdf(path)
+    result = ingest_pdf(path, user_id=USER_ID)
 
     assert result["chunks"] > 0
     assert result["pages"] == 2
 
-    paper = get_paper(result["paper_id"])
+    paper = get_paper(result["paper_id"], USER_ID)
     assert paper is not None
     assert paper["title"] == "attention-is-all-you-need-notes"
 
@@ -38,9 +39,9 @@ def test_ingest_pdf_uses_explicit_filename_over_path_basename(tmp_path, monkeypa
     from paperpilot.registry import get_paper
 
     path = os.path.join(SAMPLES_DIR, "attention-is-all-you-need-notes.pdf")
-    result = ingest_pdf(path, filename="original-upload-name.pdf")
+    result = ingest_pdf(path, user_id=USER_ID, filename="original-upload-name.pdf")
 
-    paper = get_paper(result["paper_id"])
+    paper = get_paper(result["paper_id"], USER_ID)
     assert paper["filename"] == "original-upload-name.pdf"
 
 
@@ -51,4 +52,4 @@ def test_ingest_pdf_raises_on_missing_file(tmp_path, monkeypatch):
     from paperpilot.pdf_ingest import ingest_pdf
 
     with pytest.raises(Exception):
-        ingest_pdf(os.path.join(SAMPLES_DIR, "does-not-exist.pdf"))
+        ingest_pdf(os.path.join(SAMPLES_DIR, "does-not-exist.pdf"), user_id=USER_ID)
