@@ -2,6 +2,7 @@ from langchain_core.prompts import ChatPromptTemplate
 from langchain_groq import ChatGroq
 
 from paperpilot.config import GROQ_MODEL, require_groq_key
+from paperpilot.llm import invoke_with_retry
 from paperpilot.registry import get_paper
 from paperpilot.store import get_paper_chunks
 
@@ -42,7 +43,7 @@ def generate_flashcards(paper_id: str, count: int = 5) -> dict:
 
     llm = ChatGroq(model=GROQ_MODEL, temperature=0.3)
     chain = FLASHCARD_PROMPT | llm
-    result = chain.invoke({"context": context, "count": count})
+    result = invoke_with_retry(chain, {"context": context, "count": count})
 
     return {
         "paper_id": paper_id,
