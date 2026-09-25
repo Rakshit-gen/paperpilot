@@ -5,6 +5,7 @@ from langchain_groq import ChatGroq
 from langgraph.graph import END, StateGraph
 
 from paperpilot.config import GROQ_MODEL, require_groq_key
+from paperpilot.llm import invoke_with_retry
 from paperpilot.store import get_vectorstore
 
 GRADE_PROMPT = ChatPromptTemplate.from_template(
@@ -65,8 +66,8 @@ def grade_node(state: AskState) -> dict:
     require_groq_key()
     llm = ChatGroq(model=GROQ_MODEL, temperature=0)
     chain = GRADE_PROMPT | llm
-    result = chain.invoke(
-        {"question": state["question"], "context": _format_context(state["retrieved"])}
+    result = invoke_with_retry(
+        chain, {"question": state["question"], "context": _format_context(state["retrieved"])}
     )
     return {"is_relevant": "yes" in result.content.strip().lower()}
 
@@ -79,8 +80,8 @@ def generate_answer_node(state: AskState) -> dict:
     require_groq_key()
     llm = ChatGroq(model=GROQ_MODEL, temperature=0)
     chain = ANSWER_PROMPT | llm
-    result = chain.invoke(
-        {"question": state["question"], "context": _format_context(state["retrieved"])}
+    result = invoke_with_retry(
+        chain, {"question": state["question"], "context": _format_context(state["retrieved"])}
     )
     return {"answer": result.content}
 
