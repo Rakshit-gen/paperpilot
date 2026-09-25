@@ -4,13 +4,14 @@ import tempfile
 
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 
 from paperpilot.config import CORS_ORIGIN, UPLOAD_DIR
 from paperpilot.flashcards import generate_flashcards
 from paperpilot.graph import ask as run_ask
 from paperpilot.pdf_ingest import ingest_pdf
-from paperpilot.registry import list_papers
+from paperpilot.registry import get_paper, list_papers
 from paperpilot.summarize import summarize_paper
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -57,10 +58,33 @@ async def upload_paper(file: UploadFile = File(...)) -> dict:
 
     try:
         result = ingest_pdf(tmp_path, title=os.path.splitext(file.filename)[0], filename=file.filename)
-        logger.info("ingested paper %s (%d chunks)", result["title"], result["chunks"])
-        return result
     except ValueError as e:
+        os.remove(tmp_path)
         raise HTTPException(status_code=400, detail=str(e))
+
+    # keep the PDF around under its paper_id so /papers/{id}/file can serve it
+    # for citation links to open the source document directly.
+    persisted_path = os.path.join(UPLOAD_DIR, f"{result['paper_id']}.pdf")
+    os.replace(tmp_path, persisted_path)
+
+    logger.info("ingested paper %s (%d chunks)", result["title"], result["chunks"])
+    return result
+
+
+@app.get("/papers/{paper_id}/file")
+def get_paper_file(paper_id: str) -> FileResponse:
+    paper = get_paper(paper_id)
+    if paper is None:
+        raise HTTPException(status_code=404, detail=f"no paper found with id {paper_id}")
+    path = os.path.join(UPLOAD_DIR, f"{paper_id}.pdf")
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="source file is no longer on disk")
+    return FileResponse(
+        path,
+        media_type="application/pdf",
+        filename=paper["filename"],
+        content_disposition_type="inline",
+    )
 
 
 class AskRequest(BaseModel):

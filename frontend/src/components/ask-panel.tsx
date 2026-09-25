@@ -1,16 +1,48 @@
 "use client";
 
 import { useState } from "react";
+import ReactMarkdown, { type Components } from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { Send, Loader2, MessageCircleQuestion, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { askQuestion } from "@/lib/api";
+import { askQuestion, type Paper } from "@/lib/api";
+import { linkifyCitations } from "@/lib/citations";
 import type { ChatTurn } from "@/lib/types";
 import { toast } from "sonner";
 
-export function AskPanel({ paperId, paperTitle }: { paperId: string | null; paperTitle: string }) {
+const markdownComponents: Components = {
+  p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+  strong: ({ children }) => <strong className="font-semibold">{children}</strong>,
+  ul: ({ children }) => <ul className="mb-2 list-disc space-y-1 pl-5 last:mb-0">{children}</ul>,
+  ol: ({ children }) => <ol className="mb-2 list-decimal space-y-1 pl-5 last:mb-0">{children}</ol>,
+  li: ({ children }) => <li>{children}</li>,
+  code: ({ children }) => (
+    <code className="rounded bg-muted px-1 py-0.5 text-xs">{children}</code>
+  ),
+  a: ({ href, children }) => (
+    <a
+      href={href}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="font-medium text-primary underline underline-offset-2 hover:opacity-80"
+    >
+      {children}
+    </a>
+  ),
+};
+
+export function AskPanel({
+  paperId,
+  paperTitle,
+  papers,
+}: {
+  paperId: string | null;
+  paperTitle: string;
+  papers: Paper[];
+}) {
   const [question, setQuestion] = useState("");
   const [busy, setBusy] = useState(false);
   const [turns, setTurns] = useState<ChatTurn[]>([]);
@@ -65,8 +97,10 @@ export function AskPanel({ paperId, paperTitle }: { paperId: string | null; pape
                   <Sparkles className="size-3.5" />
                 </AvatarFallback>
               </Avatar>
-              <Card className="max-w-[80%] animate-pop-in whitespace-pre-wrap rounded-2xl rounded-tl-sm px-4 py-2.5 text-sm shadow-sm">
-                {turn.answer}
+              <Card className="max-w-[80%] animate-pop-in rounded-2xl rounded-tl-sm px-4 py-2.5 text-sm shadow-sm">
+                <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                  {linkifyCitations(turn.answer, papers)}
+                </ReactMarkdown>
               </Card>
             </div>
           </div>

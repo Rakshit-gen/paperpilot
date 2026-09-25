@@ -40,6 +40,25 @@ def test_upload_stores_real_filename_not_temp_name(tmp_path, monkeypatch):
     assert papers[0]["filename"] == "my-paper.pdf"
 
 
+def test_uploaded_pdf_is_served_back_for_citation_links(tmp_path, monkeypatch):
+    client = _client(tmp_path, monkeypatch)
+    path = os.path.join(SAMPLES_DIR, "attention-is-all-you-need-notes.pdf")
+    with open(path, "rb") as f:
+        r = client.post("/papers/upload", files={"file": ("attention.pdf", f, "application/pdf")})
+    paper_id = r.json()["paper_id"]
+
+    r = client.get(f"/papers/{paper_id}/file")
+    assert r.status_code == 200
+    assert r.headers["content-type"] == "application/pdf"
+    assert r.content.startswith(b"%PDF")
+
+
+def test_paper_file_404s_for_unknown_paper(tmp_path, monkeypatch):
+    client = _client(tmp_path, monkeypatch)
+    r = client.get("/papers/does-not-exist/file")
+    assert r.status_code == 404
+
+
 def test_ask_empty_question_rejected(tmp_path, monkeypatch):
     client = _client(tmp_path, monkeypatch)
     r = client.post("/ask", json={"question": "   "})

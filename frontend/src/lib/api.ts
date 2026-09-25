@@ -62,3 +62,8 @@ export function generateFlashcards(paperId: string, count = 5) {
     { method: "POST" }
   );
 }
+
+export function paperFileUrl(paperId: string, page?: number) {
+  const base = `${API_URL}/papers/${paperId}/file`;
+  return page ? `${base}#page=${page}` : base;
+}

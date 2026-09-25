@@ -48,7 +48,7 @@ export default function Home() {
           </TabsList>
 
           <TabsContent value="ask" className="h-[calc(100%-3.5rem)]">
-            <AskPanel paperId={selectedId} paperTitle={scopedTitle} />
+            <AskPanel paperId={selectedId} paperTitle={scopedTitle} papers={papers} />
           </TabsContent>
 
           <TabsContent value="summary" className="h-[calc(100%-3.5rem)]">
