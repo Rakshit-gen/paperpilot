@@ -16,6 +16,7 @@ from langchain_core.embeddings import Embeddings
 from paperpilot.config import CHROMA_DIR
 
 _embeddings = None
+_vectorstore = None
 
 
 class _ChromaONNXEmbeddings(Embeddings):
@@ -45,7 +46,19 @@ def get_embeddings() -> Embeddings:
 
 
 def get_vectorstore() -> Chroma:
-    return Chroma(persist_directory=CHROMA_DIR, embedding_function=get_embeddings())
+    """Return a single shared Chroma client for the process's lifetime.
+
+    Instantiating Chroma(persist_directory=...) opens a new persistent
+    client each time, which reloads the on-disk HNSW index into memory.
+    Doing that on every request (this used to be called per-request) piles
+    up un-released native memory until the process gets OOM-killed, even
+    though each individual call looks cheap. One client, reused, is what
+    chromadb itself expects for a long-lived process.
+    """
+    global _vectorstore
+    if _vectorstore is None:
+        _vectorstore = Chroma(persist_directory=CHROMA_DIR, embedding_function=get_embeddings())
+    return _vectorstore
 
 
 def get_paper_chunks(paper_id: str, user_id: str) -> list[dict]:
