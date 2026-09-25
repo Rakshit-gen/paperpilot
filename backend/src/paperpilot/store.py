@@ -9,20 +9,38 @@ os.environ.setdefault("ANONYMIZED_TELEMETRY", "False")
 # chromadb imports it avoids starting that thread in the first place.
 os.environ.setdefault("ORT_DISABLE_TELEMETRY_EVENTS", "1")
 
+from chromadb.utils.embedding_functions import ONNXMiniLM_L6_V2
 from langchain_chroma import Chroma
-from langchain_huggingface import HuggingFaceEmbeddings
+from langchain_core.embeddings import Embeddings
 
-from paperpilot.config import CHROMA_DIR, EMBEDDING_MODEL
+from paperpilot.config import CHROMA_DIR
 
 _embeddings = None
 
 
-def get_embeddings() -> HuggingFaceEmbeddings:
+class _ChromaONNXEmbeddings(Embeddings):
+    """Wraps chromadb's bundled ONNX all-MiniLM-L6-v2 as a langchain Embeddings.
+
+    sentence-transformers pulls in torch, which alone pushes memory well past
+    a 512MB free-tier instance. chromadb already ships onnxruntime as a
+    dependency, and its ONNX build of the same all-MiniLM-L6-v2 model gets
+    the same embeddings for a fraction of the memory.
+    """
+
+    def __init__(self):
+        self._fn = ONNXMiniLM_L6_V2()
+
+    def embed_documents(self, texts: list[str]) -> list[list[float]]:
+        return [v.tolist() for v in self._fn(texts)]
+
+    def embed_query(self, text: str) -> list[float]:
+        return self._fn([text])[0].tolist()
+
+
+def get_embeddings() -> Embeddings:
     global _embeddings
     if _embeddings is None:
-        _embeddings = HuggingFaceEmbeddings(
-            model_name=EMBEDDING_MODEL, model_kwargs={"device": "cpu"}
-        )
+        _embeddings = _ChromaONNXEmbeddings()
     return _embeddings
 
 
