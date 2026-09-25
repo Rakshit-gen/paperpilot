@@ -1,11 +1,12 @@
 "use client";
 
-import { FileText, Sparkles, Library } from "lucide-react";
+import { FileText, Sparkles, Library, LogOut } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { UploadDialog } from "@/components/upload-dialog";
 import type { Paper } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import { cn } from "@/lib/utils";
 
 export function PaperSidebar({
@@ -19,6 +20,8 @@ export function PaperSidebar({
   onSelect: (id: string | null) => void;
   onUploaded: () => void;
 }) {
+  const { user, logout } = useAuth();
+
   return (
     <aside className="flex h-full w-80 shrink-0 flex-col gap-4 border-r bg-sidebar p-5">
       <div className="group flex items-center gap-2">
@@ -99,6 +102,16 @@ export function PaperSidebar({
           ))}
         </div>
       </ScrollArea>
+
+      <Separator />
+
+      <button
+        onClick={logout}
+        className="flex items-center justify-between rounded-2xl px-3 py-2 text-left text-xs text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+      >
+        <span className="truncate">{user?.email}</span>
+        <LogOut className="size-3.5 shrink-0" />
+      </button>
     </aside>
   );
 }

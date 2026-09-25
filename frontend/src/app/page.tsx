@@ -5,11 +5,14 @@ import { PaperSidebar } from "@/components/paper-sidebar";
 import { AskPanel } from "@/components/ask-panel";
 import { SummaryPanel } from "@/components/summary-panel";
 import { FlashcardsPanel } from "@/components/flashcards-panel";
+import { AuthScreen } from "@/components/auth-screen";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { listPapers, type Paper } from "@/lib/api";
+import { useAuth } from "@/lib/auth";
 import { toast } from "sonner";
 
 export default function Home() {
+  const { user, ready } = useAuth();
   const [papers, setPapers] = useState<Paper[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -20,8 +23,11 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    if (user) refresh();
+  }, [user, refresh]);
+
+  if (!ready) return null;
+  if (!user) return <AuthScreen />;
 
   const selectedPaper = papers.find((p) => p.paper_id === selectedId) ?? null;
   const scopedTitle = selectedPaper ? `"${selectedPaper.title}"` : "your library";

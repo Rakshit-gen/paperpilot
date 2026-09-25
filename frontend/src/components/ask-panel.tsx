@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 import { Send, Loader2, MessageCircleQuestion, Sparkles } from "lucide-react";
@@ -8,7 +8,17 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import { askQuestion, type Paper } from "@/lib/api";
+import { SessionSidebar } from "@/components/session-sidebar";
+import {
+  askQuestion,
+  createSession,
+  deleteSession,
+  getSession,
+  listSessions,
+  renameSession,
+  type Paper,
+  type Session,
+} from "@/lib/api";
 import { linkifyCitations } from "@/lib/citations";
 import type { ChatTurn } from "@/lib/types";
 import { toast } from "sonner";
@@ -46,6 +56,53 @@ export function AskPanel({
   const [question, setQuestion] = useState("");
   const [busy, setBusy] = useState(false);
   const [turns, setTurns] = useState<ChatTurn[]>([]);
+  const [sessions, setSessions] = useState<Session[]>([]);
+  const [activeSession, setActiveSession] = useState<Session | null>(null);
+
+  const refreshSessions = useCallback(() => {
+    listSessions()
+      .then((r) => setSessions(r.sessions))
+      .catch(() => toast.error("couldn't load your chat history"));
+  }, []);
+
+  useEffect(() => {
+    refreshSessions();
+  }, [refreshSessions]);
+
+  async function selectSession(id: string) {
+    try {
+      const session = await getSession(id);
+      setActiveSession(session);
+      setTurns(session.messages.map((m) => ({ question: m.question, answer: m.answer })));
+    } catch {
+      toast.error("couldn't load that conversation");
+    }
+  }
+
+  function startNewChat() {
+    setActiveSession(null);
+    setTurns([]);
+  }
+
+  async function renameActiveSession(id: string, title: string) {
+    try {
+      const updated = await renameSession(id, title);
+      setSessions((s) => s.map((x) => (x.id === id ? updated : x)));
+      if (activeSession?.id === id) setActiveSession(updated);
+    } catch {
+      toast.error("couldn't rename that conversation");
+    }
+  }
+
+  async function deleteActiveSession(id: string) {
+    try {
+      await deleteSession(id);
+      setSessions((s) => s.filter((x) => x.id !== id));
+      if (activeSession?.id === id) startNewChat();
+    } catch {
+      toast.error("couldn't delete that conversation");
+    }
+  }
 
   async function submit() {
     const q = question.trim();
@@ -53,8 +110,16 @@ export function AskPanel({
     setBusy(true);
     setQuestion("");
     try {
-      const result = await askQuestion(q, paperId);
+      let session = activeSession;
+      const scopedPaperId = session ? session.paper_id : paperId;
+      if (!session) {
+        session = await createSession(scopedPaperId);
+        setActiveSession(session);
+        setSessions((s) => [session as Session, ...s]);
+      }
+      const result = await askQuestion(q, scopedPaperId, session.id);
       setTurns((t) => [...t, { question: q, answer: result.answer }]);
+      refreshSessions();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "couldn't get an answer");
       setQuestion(q);
@@ -63,79 +128,97 @@ export function AskPanel({
     }
   }
 
+  const scopedTitle = activeSession?.paper_id
+    ? `"${papers.find((p) => p.paper_id === activeSession.paper_id)?.title ?? "a paper"}"`
+    : activeSession
+      ? "your library"
+      : paperTitle;
+
   return (
-    <div className="flex h-full flex-col gap-4">
-      <div>
-        <h2 className="font-heading text-xl font-semibold">Ask {paperTitle}</h2>
-        <p className="text-sm text-muted-foreground">
-          Every answer is grounded in the text and cites the paper and page it came from.
-          If the library doesn&apos;t have enough to answer, paperpilot says so instead of guessing.
-        </p>
-      </div>
+    <div className="flex h-full gap-4">
+      <SessionSidebar
+        sessions={sessions}
+        activeSessionId={activeSession?.id ?? null}
+        papers={papers}
+        onSelect={selectSession}
+        onNew={startNewChat}
+        onRename={renameActiveSession}
+        onDelete={deleteActiveSession}
+      />
 
-      <div className="flex-1 space-y-4 overflow-y-auto rounded-3xl border bg-card/50 p-5">
-        {turns.length === 0 && (
-          <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-muted-foreground">
-            <MessageCircleQuestion className="size-8 animate-float" />
-            <p className="text-sm">Ask something like &quot;what method does this paper use?&quot;</p>
-          </div>
-        )}
+      <div className="flex h-full flex-1 flex-col gap-4">
+        <div>
+          <h2 className="font-heading text-xl font-semibold">Ask {scopedTitle}</h2>
+          <p className="text-sm text-muted-foreground">
+            Every answer is grounded in the text and cites the paper and page it came from.
+            If the library doesn&apos;t have enough to answer, paperpilot says so instead of guessing.
+          </p>
+        </div>
 
-        {turns.map((turn, i) => (
-          <div key={i} className="animate-in fade-in slide-in-from-bottom-2 space-y-3 duration-300">
-            <div className="flex items-start justify-end gap-2">
-              <Card className="max-w-[80%] rounded-2xl rounded-tr-sm bg-primary px-4 py-2.5 text-primary-foreground shadow-sm">
-                <p className="text-sm">{turn.question}</p>
-              </Card>
-              <Avatar className="size-7 shrink-0">
-                <AvatarFallback className="bg-secondary text-xs">you</AvatarFallback>
-              </Avatar>
+        <div className="flex-1 space-y-4 overflow-y-auto rounded-3xl border bg-card/50 p-5">
+          {turns.length === 0 && (
+            <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-muted-foreground">
+              <MessageCircleQuestion className="size-8 animate-float" />
+              <p className="text-sm">Ask something like &quot;what method does this paper use?&quot;</p>
             </div>
-            <div className="flex items-start gap-2">
-              <Avatar className="size-7 shrink-0 bg-accent">
-                <AvatarFallback className="bg-accent text-accent-foreground">
-                  <Sparkles className="size-3.5" />
-                </AvatarFallback>
-              </Avatar>
-              <Card className="max-w-[80%] animate-pop-in rounded-2xl rounded-tl-sm px-4 py-2.5 text-sm shadow-sm">
-                <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
-                  {linkifyCitations(turn.answer, papers)}
-                </ReactMarkdown>
-              </Card>
+          )}
+
+          {turns.map((turn, i) => (
+            <div key={i} className="animate-in fade-in slide-in-from-bottom-2 space-y-3 duration-300">
+              <div className="flex items-start justify-end gap-2">
+                <Card className="max-w-[80%] rounded-2xl rounded-tr-sm bg-primary px-4 py-2.5 text-primary-foreground shadow-sm">
+                  <p className="text-sm">{turn.question}</p>
+                </Card>
+                <Avatar className="size-7 shrink-0">
+                  <AvatarFallback className="bg-secondary text-xs">you</AvatarFallback>
+                </Avatar>
+              </div>
+              <div className="flex items-start gap-2">
+                <Avatar className="size-7 shrink-0 bg-accent">
+                  <AvatarFallback className="bg-accent text-accent-foreground">
+                    <Sparkles className="size-3.5" />
+                  </AvatarFallback>
+                </Avatar>
+                <Card className="max-w-[80%] animate-pop-in rounded-2xl rounded-tl-sm px-4 py-2.5 text-sm shadow-sm">
+                  <ReactMarkdown remarkPlugins={[remarkGfm]} components={markdownComponents}>
+                    {linkifyCitations(turn.answer, papers)}
+                  </ReactMarkdown>
+                </Card>
+              </div>
             </div>
-          </div>
-        ))}
+          ))}
 
-        {busy && (
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Loader2 className="size-4 animate-spin" />
-            Reading the paper...
-          </div>
-        )}
-      </div>
+          {busy && (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="size-4 animate-spin" />
+              Reading the paper...
+            </div>
+          )}
+        </div>
 
-      <div className="flex items-end gap-2 rounded-3xl border bg-card p-2 shadow-sm">
-        <Textarea
-          value={question}
-          onChange={(e) => setQuestion(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" && !e.shiftKey) {
-              e.preventDefault();
-              submit();
-            }
-          }}
-          placeholder="Ask a question about your papers..."
-          className="min-h-11 resize-none border-0 shadow-none focus-visible:ring-0"
-          rows={1}
-        />
-        <Button
-          onClick={submit}
-          disabled={busy || !question.trim()}
-          size="icon"
-          className="size-11 shrink-0 rounded-2xl transition-transform hover:scale-105 active:scale-90"
-        >
-          <Send className="size-4" />
-        </Button>
+        <div className="flex items-end gap-2 rounded-3xl border bg-card p-2 shadow-sm">
+          <Textarea
+            value={question}
+            onChange={(e) => setQuestion(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                submit();
+              }
+            }}
+            placeholder="Ask a question about your papers..."
+            className="min-h-11 resize-none border-0 shadow-none focus-visible:ring-0"
+            rows={1}
+          />
+          <Button
+            onClick={submit}
+            disabled={busy || !question.trim()}
+            size="icon"
+            className="size-11 shrink-0 rounded-2xl transition-transform hover:scale-105 active:scale-90"
+          >
+            <Send className="size-4" />
+          </Button>
+        </div>
       </div>
     </div>
   );

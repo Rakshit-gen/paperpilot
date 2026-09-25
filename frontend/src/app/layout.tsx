@@ -1,19 +1,20 @@
 import type { Metadata } from "next";
-import { Quicksand, Fredoka } from "next/font/google";
+import { Geist, Geist_Mono } from "next/font/google";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/sonner";
+import { AuthProvider } from "@/lib/auth";
 import "./globals.css";
 
-const quicksand = Quicksand({
+const geist = Geist({
   variable: "--font-sans",
   subsets: ["latin"],
   weight: ["400", "500", "600", "700"],
 });
 
-const fredoka = Fredoka({
-  variable: "--font-heading",
+const geistMono = Geist_Mono({
+  variable: "--font-mono",
   subsets: ["latin"],
-  weight: ["500", "600", "700"],
+  weight: ["400", "500", "600"],
 });
 
 export const metadata: Metadata = {
@@ -26,12 +27,14 @@ export default function RootLayout({ children }: LayoutProps<"/">) {
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${quicksand.variable} ${fredoka.variable} h-full antialiased`}
+      className={`${geist.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
         <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false}>
-          {children}
-          <Toaster richColors position="top-center" />
+          <AuthProvider>
+            {children}
+            <Toaster richColors position="top-center" />
+          </AuthProvider>
         </ThemeProvider>
       </body>
     </html>
