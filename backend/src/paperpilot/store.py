@@ -28,3 +28,19 @@ def get_embeddings() -> HuggingFaceEmbeddings:
 
 def get_vectorstore() -> Chroma:
     return Chroma(persist_directory=CHROMA_DIR, embedding_function=get_embeddings())
+
+
+def get_paper_chunks(paper_id: str) -> list[dict]:
+    """Fetch every chunk for a paper, in page order.
+
+    A similarity search against some proxy query would only surface the
+    chunks closest to that query, not the whole paper, so summarizing or
+    generating flashcards needs a direct metadata lookup instead.
+    """
+    store = get_vectorstore()
+    result = store._collection.get(where={"paper_id": paper_id}, include=["documents", "metadatas"])
+    chunks = [
+        {"text": doc, "page": meta.get("page", 0)}
+        for doc, meta in zip(result["documents"], result["metadatas"])
+    ]
+    return sorted(chunks, key=lambda c: c["page"])
