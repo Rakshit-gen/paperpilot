@@ -1,15 +1,17 @@
+import hashlib
 import os
+import tarfile
+from pathlib import Path
 
-os.environ.setdefault("ANONYMIZED_TELEMETRY", "False")
-# chromadb pulls in onnxruntime even though we never use its default
-# embedding function. onnxruntime's own telemetry worker thread has a
-# known crash-on-exit bug on macOS (a mutex it already tore down gets
-# locked again during interpreter shutdown), which shows up as a Python
-# crash report on every process exit. Disabling its telemetry before
-# chromadb imports it avoids starting that thread in the first place.
+# onnxruntime's telemetry worker thread has a known crash-on-exit bug on
+# macOS (a mutex it already tore down gets locked again during interpreter
+# shutdown), which shows up as a Python crash report on every process exit.
+# Disabling its telemetry before onnxruntime is imported avoids starting
+# that thread in the first place.
 os.environ.setdefault("ORT_DISABLE_TELEMETRY_EVENTS", "1")
 
-from chromadb.utils.embedding_functions import ONNXMiniLM_L6_V2
+import httpx
+import numpy as np
 from langchain_core.embeddings import Embeddings
 from langchain_qdrant import QdrantVectorStore
 from qdrant_client import QdrantClient
@@ -26,33 +28,108 @@ from paperpilot.config import QDRANT_API_KEY, QDRANT_COLLECTION, QDRANT_URL
 
 _EMBEDDING_DIM = 384  # all-MiniLM-L6-v2 output size
 
+_MODEL_DIR = Path.home() / ".cache" / "paperpilot" / "onnx_models" / "all-MiniLM-L6-v2"
+_MODEL_FILES_DIR = _MODEL_DIR / "onnx"  # the archive's top-level entry is an "onnx/" dir
+_MODEL_URL = "https://chroma-onnx-models.s3.amazonaws.com/all-MiniLM-L6-v2/onnx.tar.gz"
+_MODEL_SHA256 = "913d7300ceae3b2dbc2c50d1de4baacab4be7b9380491c27fab7418616a16ec3"
+
 _embeddings = None
 _vectorstore = None
 
 
-class _ChromaONNXEmbeddings(Embeddings):
-    """Wraps chromadb's bundled ONNX all-MiniLM-L6-v2 as a langchain Embeddings.
+def _sha256(path: Path) -> str:
+    digest = hashlib.sha256()
+    with open(path, "rb") as f:
+        for block in iter(lambda: f.read(65536), b""):
+            digest.update(block)
+    return digest.hexdigest()
 
-    sentence-transformers pulls in torch, which alone pushes memory well past
-    a 512MB free-tier instance. chromadb already ships onnxruntime as a
-    dependency, and its ONNX build of the same all-MiniLM-L6-v2 model gets
-    the same embeddings for a fraction of the memory.
+
+def _ensure_model_downloaded() -> None:
+    if (_MODEL_FILES_DIR / "model.onnx").exists() and (_MODEL_FILES_DIR / "tokenizer.json").exists():
+        return
+    _MODEL_DIR.mkdir(parents=True, exist_ok=True)
+    archive = _MODEL_DIR / "onnx.tar.gz"
+    with httpx.stream("GET", _MODEL_URL) as resp, open(archive, "wb") as f:
+        for chunk in resp.iter_bytes(chunk_size=65536):
+            f.write(chunk)
+    if _sha256(archive) != _MODEL_SHA256:
+        os.remove(archive)
+        raise ValueError("all-MiniLM-L6-v2 ONNX download failed checksum verification")
+    with tarfile.open(archive, "r:gz") as tar:
+        tar.extractall(_MODEL_DIR)
+    os.remove(archive)
+
+
+class _MiniLML6V2Embeddings(Embeddings):
+    """Runs the same all-MiniLM-L6-v2 ONNX build chromadb ships, but through
+    onnxruntime directly instead of through chromadb.
+
+    chromadb.utils.embedding_functions.ONNXMiniLM_L6_V2 does the same
+    inference, but importing it drags in chromadb's entire package (grpc,
+    opentelemetry instrumentation, a kubernetes client, rich, pydantic
+    settings -- ~850 modules) just for this one utility class. Combined with
+    onnxruntime's default memory arena, that pushed peak RSS to ~780MB on
+    the first embed call, past Render's 512MB limit regardless of which
+    vector store sat behind it. Skipping chromadb and disabling the arena
+    keeps the same model and tokenizer but keeps peak RSS around 230MB.
     """
 
     def __init__(self):
-        self._fn = ONNXMiniLM_L6_V2()
+        import onnxruntime as ort
+        from tokenizers import Tokenizer
+
+        _ensure_model_downloaded()
+
+        so = ort.SessionOptions()
+        so.log_severity_level = 3
+        so.enable_cpu_mem_arena = False
+        so.enable_mem_pattern = False
+        so.intra_op_num_threads = 1
+        so.inter_op_num_threads = 1
+        self._session = ort.InferenceSession(
+            str(_MODEL_FILES_DIR / "model.onnx"), providers=["CPUExecutionProvider"], sess_options=so
+        )
+        self._tokenizer = Tokenizer.from_file(str(_MODEL_FILES_DIR / "tokenizer.json"))
+        # max_seq_length = 256: sentence-transformers uses 256 for this model
+        # even though its HF config reports a max length of 128.
+        self._tokenizer.enable_truncation(max_length=256)
+        self._tokenizer.enable_padding(pad_id=0, pad_token="[PAD]", length=256)
+
+    def _run(self, texts: list[str], batch_size: int = 32) -> list[list[float]]:
+        all_embeddings = []
+        for i in range(0, len(texts), batch_size):
+            batch = texts[i : i + batch_size]
+            encoded = [self._tokenizer.encode(t) for t in batch]
+            input_ids = np.array([e.ids for e in encoded], dtype=np.int64)
+            attention_mask = np.array([e.attention_mask for e in encoded], dtype=np.int64)
+            token_type_ids = np.zeros_like(input_ids)
+            last_hidden_state = self._session.run(
+                None,
+                {
+                    "input_ids": input_ids,
+                    "attention_mask": attention_mask,
+                    "token_type_ids": token_type_ids,
+                },
+            )[0]
+            mask = np.broadcast_to(attention_mask[..., None], last_hidden_state.shape)
+            pooled = np.sum(last_hidden_state * mask, axis=1) / np.clip(mask.sum(axis=1), 1e-9, None)
+            norm = np.linalg.norm(pooled, axis=1)
+            norm[norm == 0] = 1e-12
+            all_embeddings.append((pooled / norm[:, None]).astype(np.float32))
+        return np.concatenate(all_embeddings).tolist()
 
     def embed_documents(self, texts: list[str]) -> list[list[float]]:
-        return [v.tolist() for v in self._fn(texts)]
+        return self._run(texts)
 
     def embed_query(self, text: str) -> list[float]:
-        return self._fn([text])[0].tolist()
+        return self._run([text])[0]
 
 
 def get_embeddings() -> Embeddings:
     global _embeddings
     if _embeddings is None:
-        _embeddings = _ChromaONNXEmbeddings()
+        _embeddings = _MiniLML6V2Embeddings()
     return _embeddings
 
 
